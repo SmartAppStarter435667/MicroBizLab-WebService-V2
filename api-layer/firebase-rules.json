@@ -1,0 +1,18 @@
+{
+  "rules": {
+    "ranking": {
+      ".read": true,
+      ".write": true,
+      "$entry": {
+        ".validate": "newData.hasChildren(['nickname','game','xp','timestamp'])
+          && newData.child('nickname').isString()
+          && newData.child('nickname').val().length <= 30
+          && newData.child('game').isString()
+          && newData.child('xp').isNumber()
+          && newData.child('xp').val() >= 0
+          && newData.child('xp').val() <= 999999
+          && newData.child('timestamp').isNumber()"
+      }
+    }
+  }
+}
