@@ -1,0 +1,25 @@
+# 依存関係
+node_modules/
+
+# シークレット・環境変数（絶対にコミットしない）
+.env
+.env.*
+.dev.vars
+api-layer/.env.secrets
+api-layer/.dev.vars
+
+# ビルド成果物
+dist/
+dist-check/
+.wrangler/
+
+# エディタ
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# ログ
+*.log
+npm-debug.log*
