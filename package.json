@@ -1,0 +1,21 @@
+{
+  "name": "microbiz-lab-v2",
+  "version": "2.0.0",
+  "description": "微生物ビジネス学習ゲーム — 三層アーキテクチャ",
+  "private": true,
+  "scripts": {
+    "dev:api":       "cd api-layer && wrangler pages dev ./",
+    "deploy:api":    "cd api-layer && wrangler pages deploy ./ --project-name microbiz-lab",
+    "deploy:pages":  "echo 'GitHub Actions でデプロイしてください'",
+    "secret:set":    "cd api-layer && node scripts/set-secrets.js",
+    "validate":      "node scripts/validate.js",
+    "lint:js":       "find . -name '*.js' -not -path '*/node_modules/*' -exec node --check {} \\;",
+    "lint:json":     "find . -name '*.json' -not -path '*/node_modules/*' -exec node -e \"JSON.parse(require('fs').readFileSync('{}'))\" \\;"
+  },
+  "devDependencies": {
+    "wrangler": "^3.0.0"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}
