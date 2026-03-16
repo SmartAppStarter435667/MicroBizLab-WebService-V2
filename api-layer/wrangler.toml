@@ -1,0 +1,17 @@
+# wrangler.toml — Cloudflare Pages 設定
+# デプロイ: npx wrangler pages deploy ./dist
+
+name = "microbiz-lab"
+compatibility_date = "2024-01-01"
+pages_build_output_dir = "./dist"
+
+# 環境変数は Cloudflare Dashboard > Settings > Environment Variables で設定
+# (シークレットは wrangler secret put で設定)
+
+[vars]
+FIREBASE_URL = "https://microbiz-lab-default-rtdb.firebaseio.com"
+SUPABASE_URL = "https://your-project.supabase.co"
+
+# FIREBASE_TOKEN と SUPABASE_KEY はシークレットとして設定:
+# npx wrangler pages secret put FIREBASE_TOKEN
+# npx wrangler pages secret put SUPABASE_KEY
