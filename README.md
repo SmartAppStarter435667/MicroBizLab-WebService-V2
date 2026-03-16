@@ -168,3 +168,186 @@ SSE 自動更新                  集計・分析クエリ
 | Firebase RTDB | 完全無料 | 1GB保存・10GB転送 |
 | Supabase | 完全無料 | 500MB DB・50,000リクエスト |
 | **合計** | **¥0/月** | |
+
+
+
+# MicroBiz Lab v2 — CI/CD セットアップガイド
+
+## 「どこで実行すればよいか」への回答
+
+| 作業 | 実行場所 | 方法 |
+|------|----------|------|
+| wrangler install / login | **ローカルPC（初回のみ）** | ターミナルで実行 |
+| secret put | **GitHub Actions が自動実行** | mainにpushするだけ |
+| pages deploy | **GitHub Actions が自動実行** | mainにpushするだけ |
+| GitHub Pages デプロイ | **GitHub Actions が自動実行** | mainにpushするだけ |
+
+**→ 初回セットアップ後は `git push` だけで全て自動化されます。**
+
+---
+
+## ファイル構成（リポジトリに配置する場所）
+
+```
+your-repo/
+├── .github/
+│   └── workflows/
+│       ├── ci.yml                    ← コード検証（PR時）
+│       ├── deploy-cloudflare.yml     ← Cloudflare Pages デプロイ
+│       └── deploy-github-pages.yml   ← GitHub Pages デプロイ
+├── mobile-pwa/
+│   ├── index.html
+│   ├── manifest.json
+│   └── sw.js
+├── web-dashboard/
+│   └── index.html
+├── api-layer/
+│   ├── functions/
+│   │   └── api/
+│   │       ├── ranking.js
+│   │       └── sessions.js
+│   └── wrangler.toml
+├── scripts/
+│   └── set-secrets.js
+├── package.json
+└── .gitignore
+```
+
+---
+
+## STEP 1: ローカルで1回だけ実行（初回セットアップ）
+
+```bash
+# 1. Node.js 22+ がインストールされていることを確認
+node --version   # v22.x.x 以上であること
+
+# 2. wrangler をインストール
+npm install -g wrangler
+
+# 3. Cloudflare にログイン（ブラウザが開く）
+npx wrangler login
+
+# 4. Cloudflare Pages プロジェクトを作成（初回のみ）
+cd api-layer
+npx wrangler pages project create microbiz-lab
+```
+
+これ以降は **ローカルでは何も実行しなくてよい**。
+
+---
+
+## STEP 2: GitHub Secrets を登録
+
+リポジトリの **Settings → Secrets and variables → Actions → New repository secret** で以下を登録:
+
+| Secret 名 | 取得場所 | 値の例 |
+|-----------|----------|--------|
+| `CLOUDFLARE_API_TOKEN` | Cloudflare Dashboard → My Profile → API Tokens → Create Token → **「Edit Cloudflare Pages」テンプレート**を使用 | `abc123...` |
+| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare Dashboard → 右サイドバー → Account ID | `1234abcd...` |
+| `FIREBASE_URL` | Firebase Console → プロジェクト設定 → Realtime Database → URL | `https://your-project-default-rtdb.firebaseio.com` |
+| `SUPABASE_URL` | Supabase Dashboard → Settings → API → Project URL | `https://xxxx.supabase.co` |
+| `SUPABASE_KEY` | Supabase Dashboard → Settings → API → **service_role** (シークレット) | `eyJhbGci...` |
+
+### Cloudflare API Token の作成方法（重要）
+
+1. https://dash.cloudflare.com/profile/api-tokens を開く
+2. 「Create Token」をクリック
+3. 「Edit Cloudflare Pages」テンプレートを選択
+4. Account Resources: 自分のアカウントを選択
+5. 「Continue to summary」→「Create Token」
+6. 表示されたトークンを GitHub Secret `CLOUDFLARE_API_TOKEN` に登録
+
+---
+
+## STEP 3: GitHub Pages を有効化
+
+リポジトリの **Settings → Pages**:
+- Source: **GitHub Actions** を選択（Deploy from branch ではなく）
+- 「Save」をクリック
+
+> ⚠️ 「Deploy from branch」を選択すると404になります。**「GitHub Actions」を選択**してください。
+
+---
+
+## STEP 4: push してデプロイ
+
+```bash
+git add .
+git commit -m "feat: CI/CD セットアップ完了"
+git push origin main
+```
+
+Actions タブで以下の3つのワークフローが動作します:
+
+```
+CI — コード検証         → ✅ JS/JSON/HTML/manifest 検証
+Deploy — Cloudflare     → ✅ API Layer を自動デプロイ
+Deploy — GitHub Pages   → ✅ PWA + Dashboard を自動デプロイ
+```
+
+---
+
+## デプロイ後の公開 URL
+
+| システム | URL |
+|----------|-----|
+| トップページ | `https://username.github.io/your-repo/` |
+| Mobile PWA | `https://username.github.io/your-repo/mobile-pwa/` |
+| Web Dashboard | `https://username.github.io/your-repo/web-dashboard/` |
+| API (ranking) | `https://microbiz-lab.pages.dev/api/ranking` |
+| API (sessions) | `https://microbiz-lab.pages.dev/api/sessions` |
+
+---
+
+## Node.js 24 警告の解消について
+
+警告メッセージ:
+```
+Node.js 20 actions are deprecated. Actions will be forced to run
+with Node.js 24 by default starting June 2nd, 2026.
+```
+
+**対処内容（deploy-github-pages.yml に実装済み）:**
+
+```yaml
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true   # ← これを全 job に追加
+
+# actions のバージョンを最新版に更新:
+uses: actions/checkout@v4                    # ✅ Node.js 24 対応済み
+uses: actions/setup-node@v4                 # ✅
+uses: actions/configure-pages@v5            # ✅
+uses: actions/upload-pages-artifact@v3      # ✅
+uses: actions/deploy-pages@v4               # ✅
+```
+
+---
+
+## 404 になる原因と対処
+
+| 原因 | 対処 |
+|------|------|
+| GitHub Pages の Source が「Deploy from branch」 | Settings → Pages → Source を **「GitHub Actions」** に変更 |
+| dist/ にファイルが入っていない | ワークフローの「Build static site」ステップのパスを確認 |
+| パスが `/your-repo/mobile-pwa/` なのに `/mobile-pwa/` でアクセス | トップページの href を `./mobile-pwa/` (相対パス) にする |
+| upload-pages-artifact の path が間違っている | `path: dist/` になっていることを確認 |
+
+---
+
+## ローカル開発（任意）
+
+API Layer をローカルで動かす場合:
+
+```bash
+# api-layer/.dev.vars を作成（.gitignore に含まれているため安全）
+cat > api-layer/.dev.vars << EOF
+FIREBASE_URL=https://your-project-default-rtdb.firebaseio.com
+SUPABASE_URL=https://xxxx.supabase.co
+SUPABASE_KEY=your-key
+EOF
+
+# ローカルサーバー起動
+npm run dev:api
+# → http://localhost:8788/api/ranking で確認可能
+```
+
