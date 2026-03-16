@@ -1,17 +1,22 @@
 # wrangler.toml — Cloudflare Pages 設定
-# デプロイ: npx wrangler pages deploy ./dist
+# ローカル開発: npx wrangler pages dev ./
+# 手動デプロイ: npx wrangler pages deploy ./ --project-name microbiz-lab
 
 name = "microbiz-lab"
-compatibility_date = "2024-01-01"
-pages_build_output_dir = "./dist"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
 
-# 環境変数は Cloudflare Dashboard > Settings > Environment Variables で設定
-# (シークレットは wrangler secret put で設定)
+# Pages Functions はリポジトリルートの functions/ を自動認識する
+# GitHub Actions からデプロイする場合は API_BASE をフロントに設定:
+# https://microbiz-lab.pages.dev
 
 [vars]
+# 非シークレット環境変数（Cloudflare Dashboard からも設定可）
 FIREBASE_URL = "https://microbiz-lab-default-rtdb.firebaseio.com"
 SUPABASE_URL = "https://your-project.supabase.co"
+# SUPABASE_KEY と FIREBASE_TOKEN はシークレットのため .env または GitHub Secrets で管理
 
-# FIREBASE_TOKEN と SUPABASE_KEY はシークレットとして設定:
-# npx wrangler pages secret put FIREBASE_TOKEN
-# npx wrangler pages secret put SUPABASE_KEY
+# ローカル開発用 .dev.vars ファイルに書く（.gitignore に追加）:
+# FIREBASE_URL=https://...
+# SUPABASE_URL=https://...
+# SUPABASE_KEY=your-key
