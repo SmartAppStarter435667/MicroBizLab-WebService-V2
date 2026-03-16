@@ -1,0 +1,186 @@
+# ============================================================
+# .github/workflows/deploy-github-pages.yml
+#
+# 役割: Presentation Layer (Mobile PWA + Web Dashboard) を
+#       GitHub Pages に自動デプロイする
+#
+# 修正内容:
+#   ✅ Node.js 24 対応（deprecation 警告を解消）
+#   ✅ FORCE_JAVASCRIPT_ACTIONS_TO_NODE24 を設定
+#   ✅ actions/checkout@v4 → Node.js 24 ネイティブ対応版
+#   ✅ configure-pages / upload-artifact / deploy-pages 最新版
+#   ✅ パス設定を修正（404 対策）
+#   ✅ mobile-pwa/ と web-dashboard/ を両方デプロイ
+#
+# リポジトリ構成:
+#   repo-root/
+#   ├── mobile-pwa/
+#   │   ├── index.html
+#   │   ├── manifest.json
+#   │   └── sw.js
+#   ├── web-dashboard/
+#   │   └── index.html
+#   └── api-layer/
+#       └── functions/
+# ============================================================
+
+name: Deploy — GitHub Pages (Presentation Layer)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'mobile-pwa/**'
+      - 'web-dashboard/**'
+      - '.github/workflows/deploy-github-pages.yml'
+  workflow_dispatch:
+
+# GitHub Pages への書き込み権限を付与
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 同時デプロイを防ぐ（キューイング）
+concurrency:
+  group: github-pages-deploy
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: ビルド & アーティファクト生成
+    runs-on: ubuntu-latest
+
+    # ── Node.js 24 を強制（deprecation 警告の根本解決）
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+    steps:
+      # ── 1. ソースコードを取得 ────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4  # Node.js 24 ネイティブ対応済み
+
+      # ── 2. Node.js 22 をセットアップ（ビルドツール用）───
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # ── 3. GitHub Pages 設定を読み込む ──────────────────
+      #    base_url（サブパス）を自動取得する
+      - name: Configure GitHub Pages
+        id: pages
+        uses: actions/configure-pages@v5  # 最新版
+
+      # ── 4. dist/ ディレクトリにファイルを集約 ───────────
+      #    /mobile-pwa/ と /web-dashboard/ をそれぞれのサブパスに配置
+      #    最終的な構造:
+      #    dist/
+      #    ├── index.html          ← トップページ（ランディング）
+      #    ├── mobile-pwa/         ← Android PWA
+      #    │   ├── index.html
+      #    │   ├── manifest.json
+      #    │   └── sw.js
+      #    └── web-dashboard/      ← ダッシュボード
+      #        └── index.html
+      - name: Build static site
+        run: |
+          mkdir -p dist/mobile-pwa
+          mkdir -p dist/web-dashboard
+
+          # mobile-pwa をコピー
+          cp -r mobile-pwa/. dist/mobile-pwa/
+
+          # web-dashboard をコピー
+          cp -r web-dashboard/. dist/web-dashboard/
+
+          # ルートのランディングページを生成
+          # BASE_URL はリポジトリ名に基づくサブパスになる
+          BASE_URL="${{ steps.pages.outputs.base_url }}"
+          REPO_PATH="${{ steps.pages.outputs.base_path }}"
+
+          cat > dist/index.html << 'LANDING'
+          <!DOCTYPE html>
+          <html lang="ja">
+          <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width,initial-scale=1">
+          <title>MicroBiz Lab v2 — 微生物ビジネス学習ゲーム</title>
+          <style>
+            *{box-sizing:border-box;margin:0;padding:0;}
+            body{background:#040810;color:#c8deff;font-family:'Segoe UI',sans-serif;
+              display:flex;flex-direction:column;align-items:center;justify-content:center;
+              min-height:100vh;padding:32px 16px;}
+            h1{font-size:28px;font-weight:900;color:#00d4ff;letter-spacing:2px;margin-bottom:8px;}
+            .sub{font-size:13px;color:#5a7a9a;margin-bottom:48px;}
+            .cards{display:flex;gap:16px;flex-wrap:wrap;justify-content:center;}
+            .card{background:#0d1730;border:1px solid #1a3a6a;border-radius:14px;
+              padding:28px 24px;text-align:center;text-decoration:none;color:#c8deff;
+              transition:transform .15s,box-shadow .15s;max-width:260px;}
+            .card:hover{transform:translateY(-4px);box-shadow:0 12px 32px rgba(0,212,255,.15);}
+            .card-icon{font-size:40px;margin-bottom:14px;}
+            .card-title{font-size:16px;font-weight:700;color:#00d4ff;margin-bottom:6px;}
+            .card-desc{font-size:12px;color:#5a7a9a;line-height:1.6;}
+            .badge{display:inline-block;background:rgba(0,212,255,.1);border:1px solid rgba(0,212,255,.2);
+              color:#00d4ff;font-size:10px;padding:3px 10px;border-radius:20px;margin-top:10px;}
+          </style>
+          </head>
+          <body>
+            <h1>🔬 MICROBIZ LAB v2</h1>
+            <p class="sub">微生物 × ビジネス知能 — 三層アーキテクチャ</p>
+            <div class="cards">
+              <a class="card" href="./mobile-pwa/">
+                <div class="card-icon">📱</div>
+                <div class="card-title">MOBILE PWA</div>
+                <div class="card-desc">4つの微生物ゲームを収録。Androidのホーム画面に追加してネイティブアプリとして使用できます。</div>
+                <span class="badge">Android 対応</span>
+              </a>
+              <a class="card" href="./web-dashboard/">
+                <div class="card-icon">📊</div>
+                <div class="card-title">WEB DASHBOARD</div>
+                <div class="card-desc">Firebase リアルタイムランキング・ライブシミュレーション・ビジネスインサイトを提供。</div>
+                <span class="badge">リアルタイム同期</span>
+              </a>
+            </div>
+          </body>
+          </html>
+          LANDING
+
+          echo "=== dist/ 構造 ==="
+          find dist/ -type f | sort
+
+      # ── 5. アーティファクトとしてアップロード ────────────
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3  # 最新版（Node.js 24対応）
+        with:
+          path: dist/
+
+  deploy:
+    name: GitHub Pages にデプロイ
+    runs-on: ubuntu-latest
+    needs: build
+
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deploy
+        uses: actions/deploy-pages@v4  # 最新版（Node.js 24対応）
+
+      - name: Output deploy summary
+        if: success()
+        run: |
+          echo "## ✅ GitHub Pages デプロイ完了" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| ページ | URL |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------|-----|" >> $GITHUB_STEP_SUMMARY
+          echo "| トップ | ${{ steps.deploy.outputs.page_url }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Mobile PWA | ${{ steps.deploy.outputs.page_url }}mobile-pwa/ |" >> $GITHUB_STEP_SUMMARY
+          echo "| Web Dashboard | ${{ steps.deploy.outputs.page_url }}web-dashboard/ |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "ブランチ: \`${{ github.ref_name }}\`  コミット: \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
