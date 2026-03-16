@@ -1,0 +1,120 @@
+# ============================================================
+# .github/workflows/deploy-cloudflare.yml
+#
+# 役割: Application Layer (Cloudflare Pages Functions) を
+#       GitHub Push 時に自動デプロイする
+#
+# 実行タイミング:
+#   - main ブランチへの push
+#   - api-layer/ 配下のファイルが変更されたとき
+#   - 手動実行（workflow_dispatch）
+#
+# 必要な GitHub Secrets (Settings → Secrets → Actions):
+#   CLOUDFLARE_API_TOKEN  : Cloudflare API トークン
+#   CLOUDFLARE_ACCOUNT_ID : Cloudflare アカウント ID
+#   FIREBASE_URL          : Firebase RTDB URL
+#   SUPABASE_URL          : Supabase プロジェクト URL
+#   SUPABASE_KEY          : Supabase service_role キー
+# ============================================================
+
+name: Deploy — Cloudflare Pages (API Layer)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'api-layer/**'
+      - '.github/workflows/deploy-cloudflare.yml'
+  workflow_dispatch:          # 手動実行ボタンを有効化
+    inputs:
+      environment:
+        description: 'デプロイ先環境'
+        required: true
+        default: 'production'
+        type: choice
+        options: [production, preview]
+
+# 同時デプロイを防ぐ（前のデプロイ完了を待つ）
+concurrency:
+  group: cloudflare-deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  deploy-api:
+    name: Cloudflare Pages Functions デプロイ
+    runs-on: ubuntu-latest
+
+    # Node.js 24 を明示的に使用（警告対策）
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+    steps:
+      # ── 1. コードを取得 ──────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ── 2. Node.js 22 LTS をセットアップ ────────────────
+      #    wrangler が動作する最新安定版
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: api-layer/package-lock.json
+
+      # ── 3. wrangler CLI をインストール ───────────────────
+      - name: Install Wrangler
+        run: npm install -g wrangler@latest
+
+      # ── 4. Cloudflare Pages シークレットを設定 ───────────
+      #    GitHub Secrets → Cloudflare Pages 環境変数に登録
+      #    ※ 初回のみ。すでに設定済みの場合はスキップされる
+      - name: Set Cloudflare Pages Secrets
+        working-directory: api-layer
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          echo "${{ secrets.FIREBASE_URL }}"    | wrangler pages secret put FIREBASE_URL    --project-name microbiz-lab
+          echo "${{ secrets.SUPABASE_URL }}"    | wrangler pages secret put SUPABASE_URL    --project-name microbiz-lab
+          echo "${{ secrets.SUPABASE_KEY }}"    | wrangler pages secret put SUPABASE_KEY    --project-name microbiz-lab
+
+      # ── 5. Cloudflare Pages にデプロイ ───────────────────
+      - name: Deploy to Cloudflare Pages
+        working-directory: api-layer
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          BRANCH=${{ github.ref_name }}
+          if [ "$BRANCH" = "main" ]; then
+            echo "本番環境 (production) にデプロイ中..."
+            wrangler pages deploy ./ \
+              --project-name microbiz-lab \
+              --branch main \
+              --commit-message "${{ github.event.head_commit.message }}"
+          else
+            echo "プレビュー環境にデプロイ中 (branch: $BRANCH)..."
+            wrangler pages deploy ./ \
+              --project-name microbiz-lab \
+              --branch "$BRANCH"
+          fi
+
+      # ── 6. デプロイ結果をサマリーに出力 ─────────────────
+      - name: Output deploy summary
+        if: success()
+        run: |
+          echo "## ✅ Cloudflare Pages デプロイ完了" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| 項目 | 値 |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|-----|" >> $GITHUB_STEP_SUMMARY
+          echo "| API URL | https://microbiz-lab.pages.dev/api/ranking |" >> $GITHUB_STEP_SUMMARY
+          echo "| ブランチ | ${{ github.ref_name }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| コミット | ${{ github.sha }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| 実行者 | ${{ github.actor }} |" >> $GITHUB_STEP_SUMMARY
+
+      - name: Notify failure
+        if: failure()
+        run: |
+          echo "## ❌ Cloudflare Pages デプロイ失敗" >> $GITHUB_STEP_SUMMARY
+          echo "ログを確認してください: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" >> $GITHUB_STEP_SUMMARY
