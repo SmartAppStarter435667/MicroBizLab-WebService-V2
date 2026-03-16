@@ -1,1 +1,902 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MicroBiz Intelligence v2 — 三層アーキテクチャ ダッシュボード</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;700&family=Noto+Sans+JP:wght@300;400;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f5f3ee;--bg2:#edeae0;--panel:#fff;--border:#d6cfc0;
+  --text:#1a1510;--dim:#8a7f70;
+  --c1:#1a6b4a;--c1l:rgba(26,107,74,.1);
+  --c2:#8b2c00;--c2l:rgba(139,44,0,.1);
+  --c3:#1a4a8b;--c3l:rgba(26,74,139,.1);
+  --c4:#6b1a8b;--c4l:rgba(107,26,139,.1);
+  --acc:#c8742a;--radius:12px;
+  --online:#1a6b4a;--offline:#8b2c00;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html{scroll-behavior:smooth;}
+body{background:var(--bg);color:var(--text);font-family:'Space Grotesk',sans-serif;min-height:100vh;}
 
+/* NAV */
+nav{background:var(--text);padding:0 40px;display:flex;align-items:center;
+  justify-content:space-between;height:58px;position:sticky;top:0;z-index:100;}
+.nav-brand{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:13px;
+  color:#f5f3ee;letter-spacing:2px;}
+.nav-brand span{color:var(--acc);}
+.nav-links{display:flex;gap:28px;align-items:center;}
+.nav-link{color:rgba(245,243,238,.55);font-size:12px;text-decoration:none;
+  cursor:pointer;transition:color .2s;}
+.nav-link:hover{color:#f5f3ee;}
+.nav-right{display:flex;align-items:center;gap:12px;}
+/* DB Status badge */
+.db-badge{display:flex;align-items:center;gap:6px;padding:5px 11px;
+  border-radius:20px;border:1px solid rgba(255,255,255,.15);
+  font-family:'JetBrains Mono',monospace;font-size:10px;color:rgba(245,243,238,.6);}
+.db-dot{width:7px;height:7px;border-radius:50%;background:#555;transition:background .5s;}
+.db-dot.firebase-on{background:#ff9900;}
+.db-dot.supabase-on{background:#3ecf8e;}
+.nav-cta{background:var(--acc);color:#fff;border:none;padding:7px 16px;
+  border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;
+  font-family:'Space Grotesk',sans-serif;transition:opacity .2s;}
+.nav-cta:hover{opacity:.85;}
+
+/* HERO */
+.hero{background:var(--text);padding:72px 40px 90px;position:relative;overflow:hidden;}
+.hero::before{content:'';position:absolute;width:600px;height:600px;border-radius:50%;
+  background:radial-gradient(circle,rgba(200,116,42,.18),transparent 70%);
+  right:-80px;top:-120px;}
+.hero-arch{position:absolute;right:40px;top:50%;transform:translateY(-50%);
+  display:flex;flex-direction:column;gap:8px;opacity:.7;}
+.arch-chip{font-family:'JetBrains Mono',monospace;font-size:9px;
+  padding:4px 10px;border-radius:4px;letter-spacing:1px;}
+.arch-chip.pres{background:rgba(0,212,255,.15);color:#00d4ff;border:1px solid rgba(0,212,255,.3);}
+.arch-chip.app{background:rgba(255,107,43,.15);color:#ff6b2b;border:1px solid rgba(255,107,43,.3);}
+.arch-chip.data{background:rgba(0,255,159,.15);color:#00ff9f;border:1px solid rgba(0,255,159,.3);}
+.arch-arrow{font-family:'JetBrains Mono',monospace;font-size:8px;color:rgba(255,255,255,.3);text-align:center;}
+.hero-label{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--acc);
+  letter-spacing:3px;margin-bottom:18px;}
+.hero-title{font-size:clamp(34px,4.5vw,58px);font-weight:700;color:#f5f3ee;
+  line-height:1.1;max-width:640px;margin-bottom:20px;}
+.hero-title em{color:var(--acc);font-style:normal;}
+.hero-sub{font-size:15px;color:rgba(245,243,238,.6);max-width:520px;line-height:1.7;
+  font-family:'Noto Sans JP',sans-serif;font-weight:300;margin-bottom:36px;}
+.hero-actions{display:flex;gap:10px;flex-wrap:wrap;}
+.btn-primary{background:var(--acc);color:#fff;border:none;padding:12px 26px;
+  border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;
+  font-family:'Space Grotesk',sans-serif;transition:transform .15s,box-shadow .15s;}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(200,116,42,.35);}
+.btn-outline{background:transparent;color:#f5f3ee;border:1.5px solid rgba(245,243,238,.25);
+  padding:12px 26px;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;
+  font-family:'Space Grotesk',sans-serif;transition:border-color .2s;}
+.btn-outline:hover{border-color:#f5f3ee;}
+
+/* MAIN */
+main{max-width:1200px;margin:0 auto;padding:56px 40px;}
+.section-hdr{margin-bottom:36px;}
+.section-lbl{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--acc);
+  letter-spacing:3px;text-transform:uppercase;margin-bottom:10px;}
+.section-title{font-size:clamp(26px,2.8vw,38px);font-weight:700;line-height:1.2;}
+.section-sub{font-size:14px;color:var(--dim);margin-top:7px;line-height:1.6;
+  font-family:'Noto Sans JP',sans-serif;font-weight:300;}
+
+/* ARCH DIAGRAM */
+.arch-section{margin-bottom:60px;}
+.arch-diagram{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0;
+  border:1.5px solid var(--border);border-radius:var(--radius);overflow:hidden;}
+.arch-layer{padding:24px;border-right:1px solid var(--border);position:relative;}
+.arch-layer:last-child{border-right:none;}
+.arch-layer-badge{display:inline-block;font-family:'JetBrains Mono',monospace;
+  font-size:9px;padding:3px 10px;border-radius:20px;margin-bottom:12px;letter-spacing:1px;}
+.arch-layer.pres .arch-layer-badge{background:var(--c3l);color:var(--c3);border:1px solid rgba(26,74,139,.2);}
+.arch-layer.app  .arch-layer-badge{background:var(--c2l);color:var(--c2);border:1px solid rgba(139,44,0,.2);}
+.arch-layer.data .arch-layer-badge{background:var(--c1l);color:var(--c1);border:1px solid rgba(26,107,74,.2);}
+.arch-layer-title{font-size:15px;font-weight:700;margin-bottom:6px;}
+.arch-layer-tech{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--dim);margin-bottom:12px;}
+.arch-item{font-size:12px;color:var(--dim);padding:3px 0;display:flex;align-items:center;gap:6px;}
+.arch-item::before{content:'›';color:var(--acc);}
+.arch-connector{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--dim);
+  padding:10px;background:var(--bg2);text-align:center;}
+
+/* REALTIME RANKING */
+.ranking-section{margin-bottom:60px;}
+.ranking-panel{background:var(--panel);border:1.5px solid var(--border);
+  border-radius:var(--radius);overflow:hidden;}
+.ranking-header{padding:18px 24px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;}
+.ranking-title{font-size:15px;font-weight:700;}
+.ranking-meta{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--dim);}
+.ranking-controls{display:flex;gap:8px;align-items:center;}
+.filter-btn{font-family:'JetBrains Mono',monospace;font-size:10px;padding:4px 12px;
+  border-radius:6px;border:1.5px solid var(--border);background:none;
+  cursor:pointer;color:var(--dim);transition:all .15s;}
+.filter-btn.active,.filter-btn:hover{border-color:var(--acc);color:var(--acc);}
+.refresh-btn{font-family:'JetBrains Mono',monospace;font-size:10px;padding:4px 12px;
+  border-radius:6px;border:1.5px solid var(--border);background:none;
+  cursor:pointer;color:var(--dim);transition:all .15s;}
+.refresh-btn:hover{border-color:var(--c1);color:var(--c1);}
+#rank-body{min-height:240px;}
+.rank-row{padding:13px 24px;display:flex;align-items:center;gap:14px;
+  border-bottom:1px solid var(--border);transition:background .15s;}
+.rank-row:last-child{border-bottom:none;}
+.rank-row:hover{background:var(--bg);}
+.rank-num{width:32px;height:32px;border-radius:7px;display:flex;align-items:center;
+  justify-content:center;font-family:'JetBrains Mono',monospace;font-size:12px;
+  font-weight:700;flex-shrink:0;}
+.rank-num.g{background:#ffd700;color:#000;}
+.rank-num.s{background:#c0c0c0;color:#000;}
+.rank-num.b{background:#cd7f32;color:#fff;}
+.rank-num.n{background:var(--bg2);color:var(--dim);}
+.rank-icon{font-size:22px;flex-shrink:0;}
+.rank-info{flex:1;}
+.rank-name{font-size:14px;font-weight:600;}
+.rank-detail{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--dim);margin-top:2px;}
+.rank-xp{font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:700;color:var(--acc);}
+.rank-bar-wrap{width:90px;height:5px;background:var(--bg2);border-radius:2px;margin-top:4px;}
+.rank-bar{height:100%;background:var(--acc);border-radius:2px;transition:width 1s ease;}
+.rank-share{background:none;border:1px solid var(--border);color:var(--dim);
+  font-size:11px;padding:4px 9px;border-radius:6px;cursor:pointer;
+  font-family:'JetBrains Mono',monospace;white-space:nowrap;transition:all .15s;}
+.rank-share:hover{border-color:var(--c3);color:var(--c3);}
+.rank-loading{text-align:center;padding:40px;font-family:'JetBrains Mono',monospace;
+  font-size:12px;color:var(--dim);}
+.rank-live-indicator{display:flex;align-items:center;gap:5px;
+  font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--c1);}
+.live-dot{width:6px;height:6px;border-radius:50%;background:var(--c1);animation:livepulse 1.5s infinite;}
+@keyframes livepulse{0%,100%{opacity:1;transform:scale(1);}50%{opacity:.4;transform:scale(.7);}}
+
+/* LIVE SIM */
+.sim-section{margin-bottom:60px;}
+.sim-panel{background:var(--text);border-radius:var(--radius);overflow:hidden;}
+.sim-header{padding:18px 24px;border-bottom:1px solid rgba(255,255,255,.08);
+  display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;}
+.sim-title{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;
+  color:#f5f3ee;letter-spacing:1px;}
+.sim-hint{font-size:10px;color:rgba(245,243,238,.35);margin-top:2px;
+  font-family:'JetBrains Mono',monospace;}
+.sim-controls{display:flex;gap:7px;}
+.sim-btn{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);
+  color:#f5f3ee;padding:5px 13px;border-radius:6px;font-size:10px;cursor:pointer;
+  font-family:'JetBrains Mono',monospace;transition:background .2s;}
+.sim-btn:hover,.sim-btn.active{background:var(--acc);border-color:var(--acc);}
+#live-canvas{display:block;width:100%;height:280px;}
+
+/* METRICS */
+.metrics-section{margin-bottom:60px;}
+.metrics-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;}
+.metric-card{background:var(--panel);border:1.5px solid var(--border);
+  border-radius:var(--radius);padding:20px;position:relative;overflow:hidden;}
+.metric-card::before{content:'';position:absolute;bottom:0;left:0;right:0;height:3px;}
+.metric-card[data-c="1"]::before{background:var(--c1);}
+.metric-card[data-c="2"]::before{background:var(--c2);}
+.metric-card[data-c="3"]::before{background:var(--c3);}
+.metric-card[data-c="4"]::before{background:var(--c4);}
+.metric-lbl{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--dim);
+  letter-spacing:2px;margin-bottom:7px;}
+.metric-val{font-size:34px;font-weight:700;line-height:1;margin-bottom:5px;}
+.metric-card[data-c="1"] .metric-val{color:var(--c1);}
+.metric-card[data-c="2"] .metric-val{color:var(--c2);}
+.metric-card[data-c="3"] .metric-val{color:var(--c3);}
+.metric-card[data-c="4"] .metric-val{color:var(--c4);}
+.metric-desc{font-size:11px;color:var(--dim);font-family:'Noto Sans JP',sans-serif;line-height:1.5;}
+.metric-change{font-family:'JetBrains Mono',monospace;font-size:10px;margin-top:7px;}
+.metric-change.up{color:var(--c1);}
+.metric-change.dn{color:var(--c2);}
+
+/* GAMES GRID */
+.games-section{margin-bottom:60px;}
+.games-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px;}
+.game-tile{background:var(--panel);border:1.5px solid var(--border);
+  border-radius:var(--radius);overflow:hidden;transition:transform .2s,box-shadow .2s;}
+.game-tile:hover{transform:translateY(-4px);box-shadow:0 12px 30px rgba(0,0,0,.09);}
+.game-tile-top{padding:18px;display:flex;align-items:center;gap:12px;}
+.game-tile-icon{width:46px;height:46px;border-radius:10px;display:flex;
+  align-items:center;justify-content:center;font-size:22px;flex-shrink:0;}
+.game-tile[data-g="physarum"] .game-tile-icon{background:var(--c1l);border:1px solid rgba(26,107,74,.25);}
+.game-tile[data-g="quorum"]   .game-tile-icon{background:var(--c2l);border:1px solid rgba(139,44,0,.25);}
+.game-tile[data-g="hgt"]      .game-tile-icon{background:var(--c3l);border:1px solid rgba(26,74,139,.25);}
+.game-tile[data-g="redqueen"] .game-tile-icon{background:var(--c4l);border:1px solid rgba(107,26,139,.25);}
+.game-tile-name{font-size:13px;font-weight:700;}
+.game-tile[data-g="physarum"] .game-tile-name{color:var(--c1);}
+.game-tile[data-g="quorum"]   .game-tile-name{color:var(--c2);}
+.game-tile[data-g="hgt"]      .game-tile-name{color:var(--c3);}
+.game-tile[data-g="redqueen"] .game-tile-name{color:var(--c4);}
+.game-tile-sub{font-size:10px;color:var(--dim);font-family:'JetBrains Mono',monospace;margin-top:2px;}
+.game-tile-body{padding:0 18px 16px;font-size:12px;color:var(--dim);
+  line-height:1.7;font-family:'Noto Sans JP',sans-serif;font-weight:300;}
+.game-tile-footer{border-top:1px solid var(--border);padding:10px 18px;
+  display:flex;align-items:center;justify-content:space-between;}
+.tile-bar-wrap{flex:1;height:5px;background:var(--bg2);border-radius:3px;overflow:hidden;margin-right:10px;}
+.tile-bar{height:100%;border-radius:3px;}
+.game-tile[data-g="physarum"] .tile-bar{background:var(--c1);}
+.game-tile[data-g="quorum"]   .tile-bar{background:var(--c2);}
+.game-tile[data-g="hgt"]      .tile-bar{background:var(--c3);}
+.game-tile[data-g="redqueen"] .tile-bar{background:var(--c4);}
+.tile-pct{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;}
+.game-tile[data-g="physarum"] .tile-pct{color:var(--c1);}
+.game-tile[data-g="quorum"]   .tile-pct{color:var(--c2);}
+.game-tile[data-g="hgt"]      .tile-pct{color:var(--c3);}
+.game-tile[data-g="redqueen"] .tile-pct{color:var(--c4);}
+
+/* INSIGHTS */
+.insights-section{margin-bottom:60px;}
+.insights-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px;}
+.insight-card{border-radius:var(--radius);padding:22px;border:1.5px solid;}
+.insight-card[data-t="physarum"]{background:var(--c1l);border-color:rgba(26,107,74,.2);}
+.insight-card[data-t="quorum"]  {background:var(--c2l);border-color:rgba(139,44,0,.2);}
+.insight-card[data-t="hgt"]     {background:var(--c3l);border-color:rgba(26,74,139,.2);}
+.insight-card[data-t="redqueen"]{background:var(--c4l);border-color:rgba(107,26,139,.2);}
+.insight-lbl{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:2px;margin-bottom:10px;}
+.insight-card[data-t="physarum"] .insight-lbl{color:var(--c1);}
+.insight-card[data-t="quorum"]   .insight-lbl{color:var(--c2);}
+.insight-card[data-t="hgt"]      .insight-lbl{color:var(--c3);}
+.insight-card[data-t="redqueen"] .insight-lbl{color:var(--c4);}
+.insight-title{font-size:16px;font-weight:700;margin-bottom:9px;line-height:1.3;}
+.insight-body{font-size:12px;color:var(--dim);line-height:1.8;
+  font-family:'Noto Sans JP',sans-serif;font-weight:300;}
+.insight-example{margin-top:11px;padding:9px 12px;border-radius:7px;
+  background:rgba(255,255,255,.5);font-size:11px;}
+.insight-ex-lbl{font-family:'JetBrains Mono',monospace;font-size:8px;
+  color:var(--dim);margin-bottom:3px;letter-spacing:2px;}
+.insight-share{margin-top:10px;}
+.share-btn{font-family:'JetBrains Mono',monospace;font-size:10px;padding:5px 12px;
+  border-radius:6px;border:1.5px solid;background:none;cursor:pointer;
+  transition:all .15s;}
+.insight-card[data-t="physarum"] .share-btn{border-color:rgba(26,107,74,.4);color:var(--c1);}
+.insight-card[data-t="quorum"]   .share-btn{border-color:rgba(139,44,0,.4);color:var(--c2);}
+.insight-card[data-t="hgt"]      .share-btn{border-color:rgba(26,74,139,.4);color:var(--c3);}
+.insight-card[data-t="redqueen"] .share-btn{border-color:rgba(107,26,139,.4);color:var(--c4);}
+.share-btn:hover{opacity:.7;}
+
+/* MODAL */
+#modal{position:fixed;inset:0;background:rgba(26,21,16,.72);
+  backdrop-filter:blur(5px);z-index:200;display:none;
+  align-items:center;justify-content:center;padding:20px;}
+#modal.open{display:flex;}
+.modal-box{background:var(--panel);border-radius:16px;padding:30px;
+  max-width:460px;width:100%;position:relative;}
+.modal-close{position:absolute;right:18px;top:18px;background:var(--bg2);
+  border:none;width:30px;height:30px;border-radius:7px;cursor:pointer;font-size:14px;}
+.modal-title{font-size:20px;font-weight:700;margin-bottom:6px;}
+.modal-sub{font-size:12px;color:var(--dim);margin-bottom:22px;font-family:'Noto Sans JP',sans-serif;}
+.form-lbl{font-size:11px;font-weight:600;margin-bottom:5px;display:block;letter-spacing:.5px;}
+.form-input,.form-select{width:100%;padding:9px 13px;border:1.5px solid var(--border);
+  border-radius:8px;font-size:13px;font-family:'Space Grotesk',sans-serif;
+  background:var(--bg);color:var(--text);outline:none;margin-bottom:14px;
+  transition:border-color .2s;}
+.form-input:focus,.form-select:focus{border-color:var(--acc);}
+.modal-footer{display:flex;gap:8px;margin-top:4px;}
+.modal-cancel{flex:1;padding:10px;border-radius:8px;border:1.5px solid var(--border);
+  background:none;cursor:pointer;font-family:'Space Grotesk',sans-serif;color:var(--dim);}
+.modal-ok{flex:2;padding:10px;border-radius:8px;border:none;
+  background:var(--acc);color:#fff;font-weight:600;cursor:pointer;
+  font-family:'Space Grotesk',sans-serif;transition:opacity .2s;}
+.modal-ok:disabled{opacity:.5;}
+
+/* FOOTER */
+footer{background:var(--text);padding:36px 40px;}
+.footer-inner{max-width:1200px;margin:0 auto;display:flex;
+  justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;
+  font-size:11px;color:rgba(245,243,238,.4);}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-weight:700;
+  color:#f5f3ee;font-size:12px;letter-spacing:2px;}
+.footer-stack{font-family:'JetBrains Mono',monospace;font-size:9px;}
+
+/* FADE IN */
+.fade{opacity:0;transform:translateY(18px);transition:opacity .5s,transform .5s;}
+.fade.in{opacity:1;transform:none;}
+
+@media(max-width:768px){main{padding:40px 16px;}nav{padding:0 16px;}.hero{padding:56px 16px 72px;}.hero-arch{display:none;}}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-brand">MICRO<span>BIZ</span> INTELLIGENCE <span style="opacity:.4;font-size:10px;">v2</span></div>
+  <div class="nav-links">
+    <a class="nav-link" onclick="jump('arch')">アーキテクチャ</a>
+    <a class="nav-link" onclick="jump('ranking')">ランキング</a>
+    <a class="nav-link" onclick="jump('sim')">シミュレーション</a>
+    <a class="nav-link" onclick="jump('insights')">インサイト</a>
+  </div>
+  <div class="nav-right">
+    <div class="db-badge">
+      <div class="db-dot" id="fb-dot" title="Firebase"></div>
+      <span>Firebase</span>
+      <div class="db-dot" id="sb-dot" title="Supabase" style="margin-left:6px;"></div>
+      <span>Supabase</span>
+    </div>
+    <button class="nav-cta" onclick="openModal()">スコア登録</button>
+  </div>
+</nav>
+
+<div class="hero">
+  <div class="hero-arch">
+    <div class="arch-chip pres">PRESENTATION LAYER</div>
+    <div class="arch-arrow">↕ REST / SSE</div>
+    <div class="arch-chip app">APPLICATION LAYER</div>
+    <div class="arch-arrow">↕ DB API</div>
+    <div class="arch-chip data">DATA LAYER</div>
+  </div>
+  <div class="hero-label">// MICROBIZ LAB v2.0 — 三層アーキテクチャ</div>
+  <h1 class="hero-title">微生物が教える<br><em>究極の合理性</em></h1>
+  <p class="hero-sub">Firebase Realtime Database × Supabase PostgreSQL × Cloudflare Pages Functions による三層アーキテクチャ。グローバルランキングをリアルタイム同期。</p>
+  <div class="hero-actions">
+    <button class="btn-primary" onclick="jump('ranking')">ライブランキング</button>
+    <button class="btn-outline" onclick="jump('sim')">シミュレーション</button>
+    <button class="btn-outline" onclick="shareApp()">↗ このサービスをシェア</button>
+  </div>
+</div>
+
+<main>
+
+  <!-- ARCHITECTURE -->
+  <section id="arch" class="arch-section">
+    <div class="section-hdr fade">
+      <div class="section-lbl">// SYSTEM ARCHITECTURE</div>
+      <h2 class="section-title">三層アーキテクチャ</h2>
+      <p class="section-sub">Presentation → Application → Data の明確な責務分離。完全無料スタックで本格的なスケーラブルシステムを実現。</p>
+    </div>
+    <div class="arch-diagram fade">
+      <div class="arch-layer pres">
+        <span class="arch-layer-badge">PRESENTATION</span>
+        <div class="arch-layer-title">フロントエンド</div>
+        <div class="arch-layer-tech">Cloudflare Pages / GitHub Pages</div>
+        <div class="arch-item">Mobile PWA (Android対応)</div>
+        <div class="arch-item">Web ダッシュボード</div>
+        <div class="arch-item">Canvas 2D ゲームエンジン</div>
+        <div class="arch-item">Web Share API (Phase 4)</div>
+        <div class="arch-item">Service Worker (オフライン)</div>
+      </div>
+      <div class="arch-layer app">
+        <span class="arch-layer-badge">APPLICATION</span>
+        <div class="arch-layer-title">API サーバー</div>
+        <div class="arch-layer-tech">Cloudflare Pages Functions</div>
+        <div class="arch-item">GET /api/ranking</div>
+        <div class="arch-item">POST /api/ranking</div>
+        <div class="arch-item">POST /api/sessions</div>
+        <div class="arch-item">入力バリデーション</div>
+        <div class="arch-item">CORS・レート制限</div>
+      </div>
+      <div class="arch-layer data">
+        <span class="arch-layer-badge">DATA</span>
+        <div class="arch-layer-title">データベース</div>
+        <div class="arch-layer-tech">Firebase + Supabase</div>
+        <div class="arch-item">Firebase RTDB — リアルタイム</div>
+        <div class="arch-item">Supabase PostgreSQL — 永続化</div>
+        <div class="arch-item">SSE リアルタイム購読</div>
+        <div class="arch-item">RLS セキュリティ</div>
+        <div class="arch-item">ランキングビュー・集計</div>
+      </div>
+    </div>
+    <div class="arch-connector">↕ REST API (JSON)  ·  Server-Sent Events (SSE)  ·  完全無料スタック</div>
+  </section>
+
+  <!-- REALTIME RANKING -->
+  <section id="ranking" class="ranking-section">
+    <div class="section-hdr fade">
+      <div class="section-lbl">// GLOBAL RANKING — Firebase Realtime</div>
+      <h2 class="section-title">リアルタイム世界ランキング</h2>
+      <p class="section-sub">Firebase SSE で自動更新。スコア登録と同時に全デバイスに反映されます。</p>
+    </div>
+    <div class="ranking-panel fade">
+      <div class="ranking-header">
+        <div>
+          <div class="ranking-title">TOP MICROBIZ STRATEGISTS</div>
+          <div class="rank-live-indicator" id="live-indicator" style="margin-top:5px;">
+            <div class="live-dot"></div>
+            <span>Firebase SSE 接続待機中</span>
+          </div>
+        </div>
+        <div class="ranking-controls">
+          <button class="filter-btn active" onclick="setFilter('all',this)">ALL</button>
+          <button class="filter-btn" onclick="setFilter('physarum',this)">🍄</button>
+          <button class="filter-btn" onclick="setFilter('quorum',this)">📡</button>
+          <button class="filter-btn" onclick="setFilter('hgt',this)">🧬</button>
+          <button class="filter-btn" onclick="setFilter('redqueen',this)">🔴</button>
+          <button class="refresh-btn" onclick="refreshRanking()" id="refresh-btn">↻ 更新</button>
+        </div>
+      </div>
+      <div id="rank-body"><div class="rank-loading">ランキング読み込み中...</div></div>
+    </div>
+  </section>
+
+  <!-- LIVE SIM -->
+  <section id="sim" class="sim-section">
+    <div class="section-hdr fade">
+      <div class="section-lbl">// LIVE VISUALIZATION</div>
+      <h2 class="section-title">リアルタイムシミュレーション</h2>
+      <p class="section-sub">クリックで動かせる。微生物代謝ネットワークの動態を可視化します。</p>
+    </div>
+    <div class="sim-panel fade">
+      <div class="sim-header">
+        <div>
+          <div class="sim-title">METABOLIC NETWORK VISUALIZATION</div>
+          <div class="sim-hint">クリックでノード追加 · 自動最適化が進行する</div>
+        </div>
+        <div class="sim-controls">
+          <button class="sim-btn active" onclick="setSim('physarum',this)">🍄 粘菌</button>
+          <button class="sim-btn" onclick="setSim('quorum',this)">📡 クオラム</button>
+          <button class="sim-btn" onclick="setSim('hgt',this)">🧬 HGT</button>
+          <button class="sim-btn" onclick="setSim('redqueen',this)">🔴 防衛</button>
+          <button class="sim-btn" onclick="resetSim()">↺ リセット</button>
+        </div>
+      </div>
+      <canvas id="live-canvas"></canvas>
+    </div>
+  </section>
+
+  <!-- METRICS -->
+  <section class="metrics-section">
+    <div class="section-hdr fade">
+      <div class="section-lbl">// METABOLIC KPIs — 微生物版経営指標</div>
+      <h2 class="section-title">代謝 KPI ダッシュボード</h2>
+    </div>
+    <div class="metrics-grid">
+      <div class="metric-card fade" data-c="1">
+        <div class="metric-lbl">ENERGY ROI (FBA)</div>
+        <div class="metric-val" id="m-roi">3.2x</div>
+        <div class="metric-desc">フラックスバランス解析 エネルギー投資対効果</div>
+        <div class="metric-change up" id="m-roi-ch">▲ +12% 最適化中</div>
+      </div>
+      <div class="metric-card fade" data-c="2">
+        <div class="metric-lbl">QUORUM DENSITY</div>
+        <div class="metric-val" id="m-qd">67%</div>
+        <div class="metric-desc">シグナル分子濃度 クリティカルマスまで残り33%</div>
+        <div class="metric-change up" id="m-qd-ch">▲ 拡散継続中</div>
+      </div>
+      <div class="metric-card fade" data-c="3">
+        <div class="metric-lbl">HGT VELOCITY</div>
+        <div class="metric-val" id="m-hv">8.4x</div>
+        <div class="metric-desc">水平伝播速度 自己進化比 技術獲得速度倍率</div>
+        <div class="metric-change up" id="m-hv-ch">▲ 3株吸収完了</div>
+      </div>
+      <div class="metric-card fade" data-c="4">
+        <div class="metric-lbl">DEFENSE MUTATIONS</div>
+        <div class="metric-val" id="m-dm">24</div>
+        <div class="metric-desc">累計防衛変異回数 赤の女王均衡まで残り6</div>
+        <div class="metric-change dn" id="m-dm-ch">▼ ウイルス Wave 4</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- GAMES -->
+  <section id="games" class="games-section">
+    <div class="section-hdr fade">
+      <div class="section-lbl">// 04 SIMULATIONS</div>
+      <h2 class="section-title">4つの微生物ゲーム</h2>
+    </div>
+    <div class="games-grid">
+      <div class="game-tile fade" data-g="physarum">
+        <div class="game-tile-top">
+          <div class="game-tile-icon">🍄</div>
+          <div><div class="game-tile-name">PHYSARUM SOLVER</div><div class="game-tile-sub">粘菌ルート最適化</div></div>
+        </div>
+        <div class="game-tile-body">都市インフラを粘菌アルゴリズムで設計。断線耐性とコストのバランスを体得し、物流・配送網設計に応用する。</div>
+        <div class="game-tile-footer"><div class="tile-bar-wrap"><div class="tile-bar" style="width:78%"></div></div><span class="tile-pct">78% Eff</span></div>
+      </div>
+      <div class="game-tile fade" data-g="quorum">
+        <div class="game-tile-top">
+          <div class="game-tile-icon">📡</div>
+          <div><div class="game-tile-name">QUORUM CONSENSUS</div><div class="game-tile-sub">クオラム合意形成</div></div>
+        </div>
+        <div class="game-tile-body">シグナル濃度で集団行動を制御。クリティカルマスの閾値を学び、SNSバズ・組織変革に活用する。</div>
+        <div class="game-tile-footer"><div class="tile-bar-wrap"><div class="tile-bar" style="width:52%"></div></div><span class="tile-pct">52% Signal</span></div>
+      </div>
+      <div class="game-tile fade" data-g="hgt">
+        <div class="game-tile-top">
+          <div class="game-tile-icon">🧬</div>
+          <div><div class="game-tile-name">HGT TRADER</div><div class="game-tile-sub">水平伝播・技術交換</div></div>
+        </div>
+        <div class="game-tile-body">自社開発より他者DNA取り込みで10倍速く進化。M&A・技術提携・オープンイノベーションの本質を学ぶ。</div>
+        <div class="game-tile-footer"><div class="tile-bar-wrap"><div class="tile-bar" style="width:91%"></div></div><span class="tile-pct">91% Growth</span></div>
+      </div>
+      <div class="game-tile fade" data-g="redqueen">
+        <div class="game-tile-top">
+          <div class="game-tile-icon">🔴</div>
+          <div><div class="game-tile-name">RED QUEEN SECURITY</div><div class="game-tile-sub">赤の女王・自動進化防衛</div></div>
+        </div>
+        <div class="game-tile-body">常に変異するウイルスに動的防御で対抗。「現状維持＝後退」の赤の女王仮説をサイバー防衛で体験する。</div>
+        <div class="game-tile-footer"><div class="tile-bar-wrap"><div class="tile-bar" style="width:64%"></div></div><span class="tile-pct">Wave 4</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- INSIGHTS -->
+  <section id="insights" class="insights-section">
+    <div class="section-hdr fade">
+      <div class="section-lbl">// BUSINESS APPLICATIONS</div>
+      <h2 class="section-title">ビジネス応用インサイト</h2>
+      <p class="section-sub">各ゲームが現実のビジネス課題にどう結びつくか — Web Share API で直接シェア可能</p>
+    </div>
+    <div class="insights-grid">
+      <div class="insight-card fade" data-t="physarum">
+        <div class="insight-lbl">// PHYSARUM SOLVER</div>
+        <div class="insight-title">物流・インフラの自律最適化</div>
+        <div class="insight-body">東京の鉄道網は粘菌が設計したものと構造的に酷似。最短経路＋冗長性のバランスが、現実の配送ネットワーク設計原理と一致する。</div>
+        <div class="insight-example">
+          <div class="insight-ex-lbl">// 実世界への応用</div>
+          Amazon配送ルート最適化・電力グリッド設計・インターネットBGPルーティング
+        </div>
+        <div class="insight-share"><button class="share-btn" onclick="shareInsight('physarum')">↗ インサイトをシェア</button></div>
+      </div>
+      <div class="insight-card fade" data-t="quorum">
+        <div class="insight-lbl">// QUORUM CONSENSUS</div>
+        <div class="insight-title">バイラルマーケティングの臨界点</div>
+        <div class="insight-body">クリティカルマスを超えた瞬間にバズが起きる。インフルエンサー戦略は「閾値管理」。浸透率ではなく密度と拡散速度が鍵。</div>
+        <div class="insight-example">
+          <div class="insight-ex-lbl">// 実世界への応用</div>
+          TikTokアルゴリズム・プロダクトのネットワーク効果・組織変革の抵抗突破
+        </div>
+        <div class="insight-share"><button class="share-btn" onclick="shareInsight('quorum')">↗ インサイトをシェア</button></div>
+      </div>
+      <div class="insight-card fade" data-t="hgt">
+        <div class="insight-lbl">// HGT TRADER</div>
+        <div class="insight-title">M&Aと技術移転の爆速戦略</div>
+        <div class="insight-body">GPT-4もLlama3も「水平伝播」の産物。自社R&Dより他社特許ライセンス・買収の方が10倍速い技術獲得になることがある。</div>
+        <div class="insight-example">
+          <div class="insight-ex-lbl">// 実世界への応用</div>
+          GoogleのYouTube買収・MetaのInstagram買収・製薬ライセンス契約
+        </div>
+        <div class="insight-share"><button class="share-btn" onclick="shareInsight('hgt')">↗ インサイトをシェア</button></div>
+      </div>
+      <div class="insight-card fade" data-t="redqueen">
+        <div class="insight-lbl">// RED QUEEN SECURITY</div>
+        <div class="insight-title">競争優位は「進化速度」で決まる</div>
+        <div class="insight-body">ウイルスと免疫系の共進化は競合との軍拡競争と同じ。「現状維持＝後退」。競合が進化する限り、止まれば負ける。</div>
+        <div class="insight-example">
+          <div class="insight-ex-lbl">// 実世界への応用</div>
+          サイバーセキュリティの継続的アップデート・価格競争・プラットフォーム覇権争い
+        </div>
+        <div class="insight-share"><button class="share-btn" onclick="shareInsight('redqueen')">↗ インサイトをシェア</button></div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">MICROBIZ INTELLIGENCE v2</div>
+    <div>三層アーキテクチャ · Firebase + Supabase + Cloudflare Pages · 完全無料</div>
+    <div class="footer-stack">Presentation / Application / Data</div>
+  </div>
+</footer>
+
+<!-- MODAL -->
+<div id="modal">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeModal()">✕</button>
+    <div class="modal-title">スコアを登録</div>
+    <div class="modal-sub">Firebase Realtime Database に登録。全デバイスに即時反映されます。</div>
+    <label class="form-lbl">NICKNAME</label>
+    <input class="form-input" id="m-nick" placeholder="例: PhysarumKing" maxlength="20">
+    <label class="form-lbl">得意なゲーム</label>
+    <select class="form-select" id="m-game">
+      <option value="physarum">🍄 Physarum Solver</option>
+      <option value="quorum">📡 Quorum Consensus</option>
+      <option value="hgt">🧬 HGT Trader</option>
+      <option value="redqueen">🔴 Red Queen Security</option>
+    </select>
+    <label class="form-lbl">XP スコア</label>
+    <input class="form-input" id="m-xp" type="number" placeholder="例: 1250" min="0" max="999999">
+    <div class="modal-footer">
+      <button class="modal-cancel" onclick="closeModal()">キャンセル</button>
+      <button class="modal-ok" id="modal-ok" onclick="submitScore()">登録 + シェア</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ================================================================
+// CONFIG
+// ================================================================
+window.__ENV__ = {
+  FIREBASE_URL: 'https://microbiz-lab-default-rtdb.firebaseio.com',
+  API_BASE: '',  // Cloudflare Pages URL
+};
+const CFG = window.__ENV__;
+
+const GAME_ICONS = {physarum:'🍄',quorum:'📡',hgt:'🧬',redqueen:'🔴'};
+const GAME_NAMES = {physarum:'Physarum Solver',quorum:'Quorum Consensus',
+                    hgt:'HGT Trader',redqueen:'Red Queen Security'};
+const DEMO = [
+  {nickname:'PhysarumKing', game:'physarum', xp:4280, timestamp:Date.now()-172800000},
+  {nickname:'QuorumMaster', game:'quorum',   xp:3960, timestamp:Date.now()-86400000},
+  {nickname:'RedQueenAI',   game:'redqueen', xp:3750, timestamp:Date.now()-10800000},
+  {nickname:'SlimeMold99',  game:'physarum', xp:3100, timestamp:Date.now()-18000000},
+  {nickname:'HGTSpeed',     game:'hgt',      xp:2890, timestamp:Date.now()-21600000},
+  {nickname:'BuzzThreshold',game:'quorum',   xp:2340, timestamp:Date.now()-43200000},
+  {nickname:'NetworkOptim', game:'physarum', xp:1980, timestamp:Date.now()-86400000},
+  {nickname:'MutantDefense',game:'redqueen', xp:1750, timestamp:Date.now()-172800000},
+];
+
+// ================================================================
+// FIREBASE REALTIME
+// ================================================================
+let fbConnected = false;
+let allRanking = [...DEMO];
+let rankFilter = 'all';
+let rankEvtSrc = null;
+
+async function fbGet(path, q='') {
+  const url = `${CFG.FIREBASE_URL}/${path}.json${q?'?'+q:''}`;
+  const r = await fetch(url, {signal:AbortSignal.timeout(5000)});
+  return r.json();
+}
+async function fbPush(path, data) {
+  const r = await fetch(`${CFG.FIREBASE_URL}/${path}.json`, {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(data)
+  });
+  return r.json();
+}
+
+function connectFirebase() {
+  if(rankEvtSrc) rankEvtSrc.close();
+  const url = `${CFG.FIREBASE_URL}/ranking.json`;
+  rankEvtSrc = new EventSource(url);
+  rankEvtSrc.addEventListener('put', e => {
+    try {
+      const raw = JSON.parse(e.data).data;
+      if(raw) {
+        const entries = Object.values(raw).sort((a,b)=>b.xp-a.xp);
+        allRanking = [...entries, ...DEMO.filter(d=>!entries.find(e=>e.nickname===d.nickname))];
+      }
+      fbConnected = true;
+      document.getElementById('fb-dot').className = 'db-dot firebase-on';
+      document.getElementById('live-indicator').innerHTML =
+        '<div class="live-dot"></div><span>Firebase SSE 接続中 — リアルタイム更新</span>';
+      renderRanking();
+    } catch{}
+  });
+  rankEvtSrc.onerror = () => {
+    fbConnected = false;
+    document.getElementById('fb-dot').className = 'db-dot';
+    document.getElementById('live-indicator').innerHTML =
+      '<span style="color:var(--c2)">Firebase オフライン — ローカルデータ表示中</span>';
+  };
+}
+
+async function loadRanking() {
+  try {
+    const raw = await fbGet('ranking', 'orderBy="xp"&limitToLast=50');
+    if(raw) {
+      const entries = Object.values(raw).sort((a,b)=>b.xp-a.xp);
+      allRanking = [...entries, ...DEMO.filter(d=>!entries.find(e=>e.nickname===d.nickname))];
+      fbConnected = true;
+      document.getElementById('fb-dot').className = 'db-dot firebase-on';
+    }
+  } catch {
+    allRanking = [...DEMO, ...JSON.parse(localStorage.getItem('mbiz-ranking')||'[]')];
+  }
+  renderRanking();
+}
+
+function setFilter(f, btn) {
+  rankFilter = f;
+  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderRanking();
+}
+
+function renderRanking() {
+  const filtered = rankFilter === 'all'
+    ? allRanking
+    : allRanking.filter(e=>e.game===rankFilter);
+  const top = filtered.slice(0,20);
+  const maxXp = top[0]?.xp || 1;
+  const medals = ['g','s','b'];
+  const el = document.getElementById('rank-body');
+  if(!top.length){el.innerHTML='<div class="rank-loading">データなし</div>';return;}
+  el.innerHTML = top.map((e,i)=>{
+    const mc = i<3?medals[i]:'n';
+    const lbl = i===0?'🥇':i===1?'🥈':i===2?'🥉':i+1;
+    const pct = Math.round(100*e.xp/maxXp);
+    const dt = e.timestamp ? new Date(e.timestamp).toLocaleDateString('ja-JP') : '';
+    return `
+      <div class="rank-row">
+        <div class="rank-num ${mc}">${lbl}</div>
+        <div class="rank-icon">${GAME_ICONS[e.game]||'🎮'}</div>
+        <div class="rank-info">
+          <div class="rank-name">${e.nickname||'?'}</div>
+          <div class="rank-detail">${GAME_NAMES[e.game]||e.game}${dt?' · '+dt:''}</div>
+          <div class="rank-bar-wrap"><div class="rank-bar" style="width:${pct}%"></div></div>
+        </div>
+        <div style="text-align:right">
+          <div class="rank-xp">${(e.xp||0).toLocaleString()} XP</div>
+        </div>
+        <button class="rank-share" onclick="shareEntry('${e.nickname}','${e.game}',${e.xp})">↗</button>
+      </div>`;
+  }).join('');
+}
+
+async function refreshRanking() {
+  const btn = document.getElementById('refresh-btn');
+  btn.textContent = '読込中'; btn.style.pointerEvents = 'none';
+  await loadRanking();
+  btn.textContent = '↻ 更新'; btn.style.pointerEvents = '';
+}
+
+// ================================================================
+// WEB SHARE API (Phase 4)
+// ================================================================
+async function doShare(title, text, url) {
+  if(navigator.share) {
+    try { await navigator.share({title, text, url}); return; } catch(e){ if(e.name==='AbortError') return; }
+  }
+  try { await navigator.clipboard.writeText(`${text}\n${url}`); alert('クリップボードにコピーしました'); }
+  catch { alert('シェアできませんでした'); }
+}
+
+function shareApp() {
+  doShare('MicroBiz Lab', '微生物の知恵でビジネス戦略を学ぶ教育ゲーム #MicroBizLab', location.href);
+}
+function shareEntry(nickname, game, xp) {
+  const text = `${nickname} が ${GAME_NAMES[game]} で ${xp.toLocaleString()} XP を達成！ #MicroBizLab`;
+  doShare('MicroBiz Lab', text, location.href);
+}
+function shareInsight(game) {
+  const texts = {
+    physarum: '粘菌の最適化アルゴリズムは東京の鉄道網と同じ原理。物流設計の未来 #MicroBizLab',
+    quorum:   'クリティカルマスを超えた瞬間にバズが起きる。SNSマーケティングの本質 #MicroBizLab',
+    hgt:      '自社R&Dより他者技術の取り込みが10倍速い。M&Aの微生物的合理性 #MicroBizLab',
+    redqueen: '「現状維持＝後退」赤の女王仮説がサイバー防衛とビジネス競争に示すもの #MicroBizLab',
+  };
+  doShare('MicroBiz Lab', texts[game]||'', location.href+'#insights');
+}
+
+// ================================================================
+// SCORE SUBMIT
+// ================================================================
+function openModal(){ document.getElementById('modal').classList.add('open'); }
+function closeModal(){ document.getElementById('modal').classList.remove('open'); }
+document.getElementById('modal').addEventListener('click', e=>{ if(e.target===e.currentTarget) closeModal(); });
+
+async function submitScore() {
+  const nick = document.getElementById('m-nick').value.trim();
+  const game = document.getElementById('m-game').value;
+  const xp   = parseInt(document.getElementById('m-xp').value) || 0;
+  if(!nick){ alert('ニックネームを入力してください'); return; }
+  const btn = document.getElementById('modal-ok');
+  btn.disabled = true; btn.textContent = '登録中...';
+  const entry = { nickname:nick, game, xp, timestamp:Date.now() };
+  // Firebase
+  try { await fbPush('ranking', entry); }
+  catch {}
+  // Local
+  const loc = JSON.parse(localStorage.getItem('mbiz-ranking')||'[]');
+  loc.unshift(entry);
+  localStorage.setItem('mbiz-ranking', JSON.stringify(loc.slice(0,50)));
+  closeModal();
+  await loadRanking();
+  // Share
+  await shareEntry(nick, game, xp);
+  btn.disabled = false; btn.textContent = '登録 + シェア';
+}
+
+// ================================================================
+// LIVE SIMULATION
+// ================================================================
+const lc = document.getElementById('live-canvas');
+const lctx = lc.getContext('2d');
+let simMode = 'physarum', simState = null, simAf = null;
+
+function resizeLc() {
+  lc.width = lc.offsetWidth;
+  lc.height = 280;
+}
+
+function setSim(mode, btn) {
+  simMode = mode;
+  document.querySelectorAll('.sim-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  initSim();
+}
+function resetSim(){ initSim(); }
+
+function initSim() {
+  if(simAf){ cancelAnimationFrame(simAf); simAf=null; }
+  resizeLc();
+  const W=lc.width, H=lc.height;
+  if(simMode==='physarum'){
+    simState={nodes:Array.from({length:6},()=>({x:60+Math.random()*(W-120),y:40+Math.random()*(H-80),r:8+Math.random()*5}))};
+  } else if(simMode==='quorum'){
+    const COLS=Math.floor(W/26),ROWS=Math.floor(H/26);
+    simState={cells:Array.from({length:COLS*ROWS},(_, i)=>({x:(i%COLS)*(W/COLS)+W/COLS/2,y:Math.floor(i/COLS)*(H/ROWS)+H/ROWS/2,s:Math.random()*.08})),COLS,ROWS,CW:W/COLS,CH:H/ROWS};
+  } else if(simMode==='hgt'){
+    simState={agents:Array.from({length:28},()=>({x:Math.random()*W,y:Math.random()*H,vx:(Math.random()-.5)*1.2,vy:(Math.random()-.5)*1.2,type:Math.random()>.2?'e':'p',r:6+Math.random()*5}))};
+  } else {
+    simState={viruses:Array.from({length:8},()=>({x:Math.random()<.5?0:W,y:Math.random()*H,r:8,angle:0,speed:.8+Math.random()*.5,m:Math.floor(Math.random()*3)})),cx:W/2,cy:H/2};
+  }
+  const loop=()=>{ drawSim(W,H); simAf=requestAnimationFrame(loop); };
+  loop();
+}
+
+lc.addEventListener('click', e=>{
+  const r=lc.getBoundingClientRect(),mx=e.clientX-r.left,my=e.clientY-r.top;
+  if(simMode==='physarum'&&simState) simState.nodes.push({x:mx,y:my,r:8+Math.random()*5});
+  if(simMode==='quorum'&&simState) simState.cells.forEach(c=>{const d=Math.sqrt((c.x-mx)**2+(c.y-my)**2);if(d<80) c.s=Math.min(1,c.s+.5*(1-d/80));});
+});
+
+function drawSim(W,H){
+  lctx.fillStyle='rgba(26,21,16,.18)';lctx.fillRect(0,0,W,H);
+  if(simMode==='physarum'&&simState){
+    const{nodes}=simState;
+    nodes.forEach((a,i)=>nodes.forEach((b,j)=>{if(i>=j)return;
+      const dx=a.x-b.x,dy=a.y-b.y,d=Math.sqrt(dx*dx+dy*dy);
+      const al=Math.max(0,1-d/(W*.7)),fl=.3+.7*Math.abs(Math.sin(Date.now()*.001+i));
+      lctx.beginPath();lctx.moveTo(a.x,a.y);lctx.lineTo(b.x,b.y);
+      lctx.strokeStyle=`rgba(26,107,74,${al*fl*.8})`;lctx.lineWidth=al*4*fl;lctx.stroke();
+    }));
+    nodes.forEach(n=>{
+      const g=lctx.createRadialGradient(n.x,n.y,0,n.x,n.y,n.r*2.5);
+      g.addColorStop(0,'rgba(26,107,74,.5)');g.addColorStop(1,'rgba(26,107,74,0)');
+      lctx.fillStyle=g;lctx.beginPath();lctx.arc(n.x,n.y,n.r*2.5,0,Math.PI*2);lctx.fill();
+      lctx.beginPath();lctx.arc(n.x,n.y,n.r,0,Math.PI*2);lctx.fillStyle='#1a6b4a';lctx.fill();
+    });
+  } else if(simMode==='quorum'&&simState){
+    const{cells,CW,CH}=simState;
+    cells.forEach(c=>{c.s=Math.min(1,c.s*.99+.002+Math.sin(Date.now()*.0005+c.x)*.002);});
+    cells.forEach(c=>{const iv=Math.min(1,c.s*2);lctx.fillStyle=`rgba(139,${Math.round(44+iv*200)},0,${iv*.75})`;lctx.fillRect(c.x-CW/2+1,c.y-CH/2+1,CW-2,CH-2);});
+  } else if(simMode==='hgt'&&simState){
+    simState.agents.forEach(a=>{a.x+=a.vx;a.y+=a.vy;if(a.x<0||a.x>W)a.vx*=-1;if(a.y<0||a.y>H)a.vy*=-1;
+      const col=a.type==='p'?'26,74,139':'139,44,0';
+      const g=lctx.createRadialGradient(a.x,a.y,0,a.x,a.y,a.r*2);
+      g.addColorStop(0,`rgba(${col},.5)`);g.addColorStop(1,`rgba(${col},0)`);
+      lctx.fillStyle=g;lctx.beginPath();lctx.arc(a.x,a.y,a.r*2,0,Math.PI*2);lctx.fill();
+      lctx.beginPath();lctx.arc(a.x,a.y,a.r,0,Math.PI*2);lctx.fillStyle=`rgb(${col})`;lctx.fill();
+    });
+  } else if(simMode==='redqueen'&&simState){
+    const{viruses,cx,cy}=simState;
+    viruses.forEach(v=>{const dx=cx-v.x,dy=cy-v.y,d=Math.sqrt(dx*dx+dy*dy);v.x+=dx/d*v.speed;v.y+=dy/d*v.speed;v.angle+=.05;
+      lctx.save();lctx.translate(v.x,v.y);lctx.rotate(v.angle);
+      lctx.beginPath();for(let i=0;i<6+v.m;i++){const a=i/(6+v.m)*Math.PI*2;lctx.lineTo(Math.cos(a)*(v.r+4),Math.sin(a)*(v.r+4));lctx.lineTo(Math.cos(a+Math.PI/(6+v.m))*v.r*.6,Math.sin(a+Math.PI/(6+v.m))*v.r*.6);}
+      lctx.closePath();lctx.fillStyle=`hsla(${v.m*40},100%,60%,.8)`;lctx.fill();lctx.restore();
+      if(d<18){v.x=Math.random()<.5?0:W;v.y=Math.random()*H;}
+    });
+    const cg=lctx.createRadialGradient(cx,cy,0,cx,cy,26);
+    cg.addColorStop(0,'rgba(107,26,139,.8)');cg.addColorStop(1,'rgba(107,26,139,.1)');
+    lctx.fillStyle=cg;lctx.beginPath();lctx.arc(cx,cy,18,0,Math.PI*2);lctx.fill();
+  }
+}
+
+// ================================================================
+// METRICS ANIMATION
+// ================================================================
+function animMetrics(){
+  document.getElementById('m-roi').textContent=(3.2+(Math.random()-.5)*.3).toFixed(1)+'x';
+  document.getElementById('m-qd').textContent=Math.round(67+(Math.random()-.5)*10)+'%';
+  document.getElementById('m-hv').textContent=(8.4+(Math.random()-.5)*.8).toFixed(1)+'x';
+  document.getElementById('m-dm').textContent=Math.round(24+(Math.random()-.5)*3);
+}
+setInterval(animMetrics,2500);
+
+// DB status - Supabase
+async function checkSupabase(){
+  try{ await fetch(`https://your-project.supabase.co/rest/v1/`,{signal:AbortSignal.timeout(3000)}); document.getElementById('sb-dot').className='db-dot supabase-on'; } catch{}
+}
+
+// ================================================================
+// SCROLL FADE
+// ================================================================
+const obs = new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting)e.target.classList.add('in');}),{threshold:.1});
+document.querySelectorAll('.fade').forEach(el=>obs.observe(el));
+
+function jump(id){ document.getElementById(id)?.scrollIntoView({behavior:'smooth'}); }
+
+// ================================================================
+// INIT
+// ================================================================
+window.addEventListener('load',()=>{
+  resizeLc(); initSim();
+  loadRanking();
+  connectFirebase();
+  checkSupabase();
+});
+window.addEventListener('resize',()=>{ resizeLc(); if(simState) initSim(); });
+</script>
+</body>
+</html>
